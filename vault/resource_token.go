@@ -90,6 +90,12 @@ func tokenResource() *schema.Resource {
 				Default:     "token",
 				Description: "The display name of the token.",
 			},
+			"metadata": {
+				Type:        schema.TypeMap,
+				Optional:    true,
+				ForceNew:    true,
+				Description: "A map of string to string valued metadata.",
+			},
 			"num_uses": {
 				Type:        schema.TypeInt,
 				Optional:    true,
@@ -201,6 +207,11 @@ func tokenCreate(d *schema.ResourceData, meta interface{}) error {
 
 	if v, ok := d.GetOk("display_name"); ok {
 		createRequest.DisplayName = v.(string)
+	}
+
+	if v, ok := d.GetOk("metadata"); ok {
+		metadata := metaFromMap(v.(map[string]interface{}))
+		createRequest.Metadata = metadata
 	}
 
 	if v, ok := d.GetOk("num_uses"); ok {
@@ -320,6 +331,7 @@ func tokenRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("no_parent", resp.Data["orphan"])
 	d.Set("renewable", resp.Data["renewable"])
 	d.Set("display_name", strings.TrimPrefix(resp.Data["display_name"].(string), "token-"))
+	d.Set("metadata", resp.Data["meta"])
 	d.Set("num_uses", resp.Data["num_uses"])
 	if _, ok := d.GetOk("pgp_key"); !ok {
 		d.Set("pgp_key", "")
@@ -456,4 +468,12 @@ func tokenCheckLease(d *schema.ResourceData) bool {
 	}
 
 	return false
+}
+
+func metaFromMap(input map[string]interface{}) map[string]string {
+	result := make(map[string]string, len(input))
+	for k, v := range input {
+		result[k] = v.(string)
+	}
+	return result
 }
