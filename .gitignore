@@ -32,4 +32,5 @@ website/vendor
 
 # Binaries
 terraform-provider-vault
+terraform-provider-vault*
 /cmd/coverage/coverage

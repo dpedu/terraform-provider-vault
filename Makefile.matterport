@@ -1,0 +1,53 @@
+OS ?= $(shell uname -s | tr A-Z a-z)
+
+ifeq ($(OS), darwin)
+	GOOS=darwin
+	INSTALL_OS := darwin_amd64
+else ifeq ($(OS), linux)
+	GOOS=linux
+	INSTALL_OS := linux_amd64
+else
+$(error unsuppored OS: $(OS))
+endif
+
+VERSION := 2.8.0_x4
+BINARY_NAME := terraform-provider-vault_v$(VERSION)
+BINARY_TARGET := $(BINARY_NAME)_$(INSTALL_OS)
+S3_PATH := s3://matterport-software/vaultprovider/$(VERSION)/$(INSTALL_OS)
+BUCKET_ACCOUNT := matterport
+
+$(BINARY_TARGET):
+	GOOS=$(GOOS) go build -o $@
+
+.DEFAULT_GOAL := $(BINARY_TARGET)
+
+get-deps:
+	$(BUILD_ENVVARS) go get
+
+go-get:
+	$(BUILD_ENVVARS) go get $(MODULE)
+
+clean:
+	rm -vf terraform-provider-vault terraform-provider-vault*
+
+INSTALL_DIR := ~/.terraform.d/plugins/$(INSTALL_OS)
+
+install: $(BINARY_TARGET)
+	mkdir -p $(INSTALL_DIR)
+	cp $(BINARY_TARGET) $(INSTALL_DIR)/$(BINARY_NAME)
+	chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
+
+uninstall:
+	rm -vf $(INSTALL_DIR)/$(BINARY_NAME)
+
+release: $(BINARY_TARGET)
+	AWS_PROFILE=$(BUCKET_ACCOUNT) aws s3 cp $(BINARY_TARGET) $(S3_PATH)/$(BINARY_NAME)
+
+tag:
+	git tag $(VERSION)
+	git push origin tag $(VERSION)
+
+install-release:
+	mkdir -p $(INSTALL_DIR)
+	AWS_PROFILE=$(BUCKET_ACCOUNT) aws s3 cp --recursive $(S3_PATH)/$(BINARY_NAME) $(INSTALL_DIR)
+	chmod +x $(INSTALL_DIR)/*
